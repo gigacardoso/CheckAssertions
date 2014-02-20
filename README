@@ -1,0 +1,124 @@
+#########################################################################################
+#                                                                                       #
+#                                    Daniel Cardoso                                     #
+#                               daniel.cardoso18@live.com                               #
+#                                                                                       #
+#                                   Check_Assertions                                    #
+#                                                                                       #
+#                         Last Updated: 2013                                            #
+#                                   by: Daniel Cardoso                                  #
+#                                                                                       #
+#########################################################################################
+
+This Project implements, in Java, a set of extensions:
+
+	A mechanism for annotating a field declaration with an assertion that
+must be enforced each time the field is assigned.
+
+	A mechanism that prevents an annotated field of an object to be read
+without having been initialized by the program (that is, without consid-
+ering the automatic initialization done by the language).
+
+	A mechanism for annotating a method declaration with an assertion that
+must be enforced immediately before the method returns.
+
+We will now describe these mechanisms.
+
+		Field Assertions
+
+It should be possible to annotate each field declaration with one assertion. As
+an example, consider the following class declaration:
+public class Test {
+@Assertion("foo>0")
+int foo=1;
+@Assertion("bar%2==0")
+long bar;
+@Assertion("baz>foo")
+int baz;
+@Assertion("quux.length()>1")
+String quux;
+}
+In the above example, the field foo must always be a positive integer, the
+field bar must be an even number, the field baz must always be bigger than foo
+and, finally, quux must have a length greater than 1.
+To this end, you must define the annotation @Assertion("expression")
+where expression is any acceptable Java expression of type boolean, named
+assertion. Each time an annotated field is updated, the assertion is evaluated.
+If its value is false, then a RuntimeException is thrown, describing the asser-
+tion.
+As an example, consider the following instance initializer of class Test:
+{
+bar=2;
+baz=3;
+bar+=2;
+quux="foo";
+bar++;
+}
+In the above example, it should be obvious that all statements except the
+last verify the corresponding assertions. However, the statement bar++ violates
+the assertion that bar must be an even number. As a result, any attempt to
+create an instance of Test will throw an exception that, if not catched, will
+show as:
+
+The assertion bar%2==0 is false
+In the general case, the RuntimeException must be initialized with the
+string "The assertion expression is false" where expression is the asser-
+tion expression that was violated.
+
+			Field Initialization
+
+Any field annotated with Assertion will be checked for proper initialization
+before use.
+As an example, consider:
+public class TestInit {
+@Assertion("true")
+int foo;
+{
+foo++;
+}
+public static void main(String args[]) {
+new TestInit();
+}
+}
+As it should be obvious, the field foo is not explicitly initialized before the
+statement foo++ attempts to update it by incrementing its previous value. As
+a result, an exception is thrown.
+In the general case, when a field named foo was not explicitly initialized
+before being used, the RuntimeException that is thrown must be initialized
+with the string "Error: foo was not initialized".
+
+			Method Assertions
+
+It should be possible to annotate each method declaration with one assertion
+that is checked immediately before the method returns. As an example, consider
+the following class declaration:
+class Base {
+@Assertion("($1>=0) && ($_>$1)")
+public int fooBar(int x) {
+return ++x;
+}
+}
+In the syntax for method assertions, the meta-variable $_ represents the re-
+turned value of the method, the meta-variable $0 represents the method receiver
+(this), and $1, $2, . . . , $n, represent the corresponding method arguments.
+
+Using this syntax, the assertion in the above example means that the method
+fooBar only accepts a non-negative argument and promises to return a number
+greater than its argument.
+One very interesting property of method assertions is that they should be
+non-overridable. Returning to the above example, this means that a subclass
+of Base that overrides the method fooBar will inherit the same assertion that
+was established for the base method. As an example, consider:
+public class Derived extends Base {
+@Override
+@Assertion("($1%2==0) && ($_%2==1)")
+public int fooBar(int x) {
+return x+1;
+}
+}
+Note that class Derived overrides method fooBar from class Base. However,
+the method will include not only its own assertion (namely, that the argument
+is a even number and the result is an odd number), but also the assertions of
+all overriden methods in the hierarchy chain. In this case, it means that the
+argument must be a non-negative even number and the result must be an odd
+number bigger than the argument.
